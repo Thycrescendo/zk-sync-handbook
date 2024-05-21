@@ -39,15 +39,14 @@ npm install @matterlabs/hardhat-zksync-solc @matterlabs/hardhat-zksync-deploy
 Configure `hardhat.config.js`:
 
 ```javascript
-require("@matterlabs/hardhat-zksync-solc");
+require("@matterlabs/hardhat-zksync");
 require("@matterlabs/hardhat-zksync-deploy");
+require("@matterlabs/hardhat-zksync-chai-matchers");
 
 module.exports = {
-  zksync: {
-    version: "beta",
-    compilerType: "zksolc",
-    compilerVersion: "1.2.0",
-    settings: {},
+  zkSyncDeploy: {
+    zkSyncNetwork: "https://zksync2-testnet.zksync.dev",
+    ethNetwork: "https://eth-rinkeby.alchemyapi.io/v2/your-api-key",  // Replace with your Alchemy API key for Rinkeby
   },
   networks: {
     zkSyncTestnet: {
@@ -57,9 +56,10 @@ module.exports = {
     },
   },
   solidity: {
-    version: "0.8.16",
+    version: "0.8.18",
   },
 };
+
 ```
 
 ## Building Your First zkSync Smart Contract
@@ -69,40 +69,58 @@ module.exports = {
 1. **Create Contract**: In the `contracts` directory, create `MyToken.sol`:
 
    ```solidity
-   // SPDX-License-Identifier: MIT
-   pragma solidity ^0.8.0;
 
-   import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+pragma solidity ^0.8.18;
 
-   contract MyToken is ERC20 {
-       constructor() ERC20("MyToken", "MTK") {
-           _mint(msg.sender, 1000 * 10 ** decimals());
-       }
-   }
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+contract MyToken is ERC20 {
+    constructor() ERC20("MyToken", "MTK") {
+        _mint(msg.sender, 1000 * 10 ** decimals());
+    }
+}
+
    ```
 
-2. **Deploy Contract**: Create a deployment script in the `scripts` directory, `deploy.js`:
+2. **Deploy Contract**: Create a deployment script in the `scripts` directory, `deployMultiSig.js`:
 
    ```javascript
-   async function main() {
-     const [deployer] = await ethers.getSigners();
-     console.log("Deploying contracts with the account:", deployer.address);
+require('dotenv').config();
+const { Wallet, Provider, utils } = require("zksync-web3");
+const { ethers } = require("hardhat");
 
-     const MyToken = await ethers.getContractFactory("MyToken");
-     const token = await MyToken.deploy();
-     console.log("Token deployed to:", token.address);
-   }
+async function main() {
+  // Load the private key from environment variables or replace with a hardcoded one
+  const PRIVATE_KEY = process.env.PRIVATE_KEY || "your-private-key";
 
-   main().catch((error) => {
-     console.error(error);
-     process.exitCode = 1;
-   });
+  // Create a Wallet
+  const zkSyncProvider = new Provider("https://zksync2-testnet.zksync.dev");
+  const wallet = new Wallet(PRIVATE_KEY, zkSyncProvider);
+
+  // Load and deploy the MultiSigWallet contract
+  const MultiSigWallet = await ethers.getContractFactory("MultiSigWallet", wallet);
+
+  const owners = ["0xYourAddress1", "0xYourAddress2"]; // Replace with actual addresses
+  const required = 2;
+
+  const multiSigWallet = await MultiSigWallet.deploy(owners, required);
+
+  await multiSigWallet.deployed();
+  console.log("MultiSigWallet deployed to:", multiSigWallet.address);
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
+
+
    ```
 
 3. **Deploy on zkSync Testnet**:
 
    ```bash
-   npx hardhat run scripts/deploy.js --network zkSyncTestnet
+   npx hardhat run scripts/deployToken.js --network zkSyncTestnet
    ```
 
 ## Advanced zkSync Topics
@@ -185,33 +203,35 @@ zkSync supports excellent communication between Layer 1 and Layer 2, allowing de
 1. **L1 Oracle Contract**:
 
    ```solidity
-   // SPDX-License-Identifier: MIT
-   pragma solidity ^0.8.0;
+ 
+pragma solidity ^0.8.18;
 
-   contract L1Oracle {
-       event DataSentToL2(bytes data);
+contract L1Oracle {
+    event DataSentToL2(bytes data);
 
-       function sendDataToL2(bytes calldata data) external {
-           emit DataSentToL2(data);
-       }
-   }
+    function sendDataToL2(bytes calldata data) external {
+        emit DataSentToL2(data);
+    }
+}
+
    ```
 
 2. **L2 Listener Contract**:
 
    ```solidity
-   // SPDX-License-Identifier: MIT
-   pragma solidity ^0.8.0;
 
-   import "@matterlabs/zksync-contracts/l2/contracts/ZkSyncReceiver.sol";
+pragma solidity ^0.8.18;
 
-   contract L2Listener is ZkSyncReceiver {
-       event DataReceived(bytes data);
+import "@matterlabs/zksync-contracts/l2/contracts/ZkSyncReceiver.sol";
 
-       function onZkSyncMessage(bytes memory data) external override {
-           emit DataReceived(data);
-       }
-   }
+contract L2Listener is ZkSyncReceiver {
+    event DataReceived(bytes data);
+
+    function onZkSyncMessage(bytes memory data) external override {
+        emit DataReceived(data);
+    }
+}
+
    ```
 
 Deploy the L1 Oracle and L2 Listener, and use them to pass data from Ethereum to zkSync, demonstrating the powerful interoperability zkSync offers.

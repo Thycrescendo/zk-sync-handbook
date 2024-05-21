@@ -1,12 +1,11 @@
-require("@matterlabs/hardhat-zksync-solc");
+require("@matterlabs/hardhat-zksync");
 require("@matterlabs/hardhat-zksync-deploy");
+require("@matterlabs/hardhat-zksync-chai-matchers");
 
 module.exports = {
-  zksync: {
-    version: "beta",
-    compilerType: "zksolc",
-    compilerVersion: "1.2.0",
-    settings: {},
+  zkSyncDeploy: {
+    zkSyncNetwork: "https://zksync2-testnet.zksync.dev",
+    ethNetwork: "https://eth-rinkeby.alchemyapi.io/v2/your-api-key", // Replace with your Alchemy API key for Rinkeby
   },
   networks: {
     zkSyncTestnet: {
@@ -15,5 +14,7 @@ module.exports = {
       zksync: true,
     },
   },
-  solidity: "0.8.24",
+  solidity: {
+    version: "0.8.18",
+  },
 };
